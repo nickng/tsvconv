@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	pkgName  = regexp.MustCompile(`/(?P<pkg>[a-zA-Z]+)\s+`)
+	pkgName  = regexp.MustCompile(`pkg:(?P<pkg>[a-zA-Z\/._-]+)\s+`)
 	dataLine = regexp.MustCompile(`^(?P<name>.+)-(?P<cpus>\d+)\s*(?P<val>\d+(?:\.\d+)?)(?P<unit>[µmn])s\s*±\s*(?P<error>\d+)%`)
 
 	dataNames map[string]int
@@ -51,6 +51,7 @@ func main() {
 	lines := bytes.Split(b, []byte("\n"))
 	var title string
 	for _, line := range lines {
+		// If is a pkg: line, use package full path as title
 		if bytes.HasPrefix(line, []byte("pkg:")) {
 			title = string(pkgName.FindSubmatch(line)[1])
 			alldata[title] = make(map[string][]coldata)
