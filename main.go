@@ -19,6 +19,8 @@ var (
 
 	dataNames map[string]int
 	alldata   map[string]map[string][]coldata
+
+	flagOmiterr = flag.Bool("omiterr", false, "Specify if ± error values should be omitted (default: false)")
 )
 
 func init() {
@@ -37,16 +39,30 @@ type coldata struct {
 	original string
 }
 
+func usage() {
+	fmt.Fprintf(os.Stderr, "usage:\n")
+	fmt.Fprintf(os.Stderr, "\ttsvconv [-omiterr] benchstat.out\n\n")
+	flag.PrintDefaults()
+	os.Exit(2)
+}
+
 func main() {
+	log.SetPrefix("tsvconv: ")
+	log.SetFlags(0)
+	flag.Usage = usage
 	flag.Parse()
+	if flag.NArg() < 1 {
+		log.Printf("Not enough arguments (want=1, got=%d)", flag.NArg())
+		flag.Usage()
+	}
 	f, err := os.OpenFile(flag.Arg(0), os.O_RDONLY, 0666)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("cannot open file: %v", err)
 	}
 	defer f.Close()
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("cannot read file: %v", err)
 	}
 	lines := bytes.Split(b, []byte("\n"))
 	var title string
@@ -107,16 +123,26 @@ func main() {
 		fmt.Printf("# ---- %s ----\n", title)
 		for _, data := range row {
 			fmt.Printf("#\t")
+			colFormat := "%s\t"
+			if !*flagOmiterr {
+				colFormat += "+err\t-err\t"
+			}
 			for _, colgroup := range data {
-				fmt.Printf("%s\t+err\t-err\t", colgroup.coltitle)
+				fmt.Printf(colFormat, colgroup.coltitle)
 			}
 			fmt.Println()
 			break
 		}
 		for col, data := range row {
 			fmt.Printf("%s\t", col)
-			for _, colgroup := range data {
-				fmt.Printf("%.2f\t%.2f\t%.2f\t", colgroup.value, colgroup.above, colgroup.below)
+			if !*flagOmiterr {
+				for _, colgroup := range data {
+					fmt.Printf("%.2f\t%.2f\t%.2f\t", colgroup.value, colgroup.above, colgroup.below)
+				}
+			} else {
+				for _, colgroup := range data {
+					fmt.Printf("%.2f\t", colgroup.value)
+				}
 			}
 			fmt.Printf("\n")
 		}
